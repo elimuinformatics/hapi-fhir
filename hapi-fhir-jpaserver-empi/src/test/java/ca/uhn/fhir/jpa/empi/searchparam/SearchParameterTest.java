@@ -1,36 +1,28 @@
 package ca.uhn.fhir.jpa.empi.searchparam;
 
 import ca.uhn.fhir.jpa.empi.BaseEmpiR4Test;
-import ca.uhn.fhir.jpa.empi.config.EmpiSearchParameterLoader;
 import ca.uhn.fhir.jpa.searchparam.SearchParameterMap;
-import ca.uhn.fhir.jpa.searchparam.registry.SearchParamRegistryImpl;
 import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import ca.uhn.fhir.rest.param.TokenParam;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Person;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class SearchParameterTest extends BaseEmpiR4Test {
 	private static final Logger ourLog = LoggerFactory.getLogger(SearchParameterTest.class);
-	@Autowired
-	EmpiSearchParameterLoader myEmpiSearchParameterLoader;
-	@Autowired
-	SearchParamRegistryImpl mySearchParamRegistry;
 
-	@Before
+	@BeforeEach
 	public void before() {
-		myEmpiSearchParameterLoader.daoUpdateEmpiSearchParameters();
-		mySearchParamRegistry.forceRefresh();
+		super.loadEmpiSearchParameters();
 	}
 
 	@Test
@@ -38,11 +30,11 @@ public class SearchParameterTest extends BaseEmpiR4Test {
 		// Create a possible match
 		Patient patient = buildJanePatient();
 		patient.getNameFirstRep().setFamily("familyone");
-		patient  = createPatientAndUpdateLinks(patient);
+		patient = createPatientAndUpdateLinks(patient);
 
 		Patient patient2 = buildJanePatient();
 		patient2.getNameFirstRep().setFamily("pleasedonotmatchatall");
-		patient2  = createPatientAndUpdateLinks(patient2);
+		patient2 = createPatientAndUpdateLinks(patient2);
 
 		assertThat(patient2, is(possibleMatchWith(patient)));
 		// Now confirm we can find it using our custom search parameter
@@ -58,7 +50,7 @@ public class SearchParameterTest extends BaseEmpiR4Test {
 		ourLog.info("Search result: {}", encoded);
 		List<Person.PersonLinkComponent> links = person.getLink();
 		assertEquals(2, links.size());
-		assertEquals(Person.IdentityAssuranceLevel.LEVEL3, links.get(0).getAssurance());
-		assertEquals(Person.IdentityAssuranceLevel.LEVEL2, links.get(1).getAssurance());
+		assertEquals(Person.IdentityAssuranceLevel.LEVEL2, links.get(0).getAssurance());
+		assertEquals(Person.IdentityAssuranceLevel.LEVEL1, links.get(1).getAssurance());
 	}
 }

@@ -21,6 +21,7 @@ package ca.uhn.fhir.jpa.empi.svc;
  */
 
 import ca.uhn.fhir.empi.api.EmpiLinkSourceEnum;
+import ca.uhn.fhir.empi.api.EmpiMatchOutcome;
 import ca.uhn.fhir.empi.api.EmpiMatchResultEnum;
 import ca.uhn.fhir.empi.api.IEmpiLinkSvc;
 import ca.uhn.fhir.empi.log.Logs;
@@ -28,8 +29,8 @@ import ca.uhn.fhir.empi.model.CanonicalIdentityAssuranceLevel;
 import ca.uhn.fhir.empi.model.EmpiTransactionContext;
 import ca.uhn.fhir.empi.util.AssuranceLevelUtil;
 import ca.uhn.fhir.empi.util.PersonHelper;
-import ca.uhn.fhir.jpa.dao.EmpiLinkDaoSvc;
 import ca.uhn.fhir.jpa.dao.index.IdHelperService;
+import ca.uhn.fhir.jpa.empi.dao.EmpiLinkDaoSvc;
 import ca.uhn.fhir.jpa.entity.EmpiLink;
 import ca.uhn.fhir.rest.server.exceptions.InternalErrorException;
 import org.hl7.fhir.instance.model.api.IAnyResource;
@@ -63,18 +64,25 @@ public class EmpiLinkSvcImpl implements IEmpiLinkSvc {
 
 	@Override
 	@Transactional
-	public void updateLink(IAnyResource thePerson, IAnyResource theResource, EmpiMatchResultEnum theMatchResult, EmpiLinkSourceEnum theLinkSource, EmpiTransactionContext theEmpiTransactionContext) {
-		IIdType resourceId = theResource.getIdElement().toUnqualifiedVersionless();
+	public void updateLink(IAnyResource thePerson, IAnyResource theTarget, EmpiMatchOutcome theMatchOutcome, EmpiLinkSourceEnum theLinkSource, EmpiTransactionContext theEmpiTransactionContext) {
+		IIdType resourceId = theTarget.getIdElement().toUnqualifiedVersionless();
 
-		validateRequestIsLegal(thePerson, theResource, theMatchResult, theLinkSource);
-		switch (theMatchResult) {
+		if (theMatchOutcome.isPossibleDuplicate() && personsLinkedAsNoMatch(thePerson, theTarget)) {
+			log(theEmpiTransactionContext, thePerson.getIdElement().toUnqualifiedVersionless() +
+				" is linked as NO_MATCH with " +
+				theTarget.getIdElement().toUnqualifiedVersionless() +
+				" not linking as POSSIBLE_DUPLICATE.");
+			return;
+		}
+		EmpiMatchResultEnum matchResultEnum = theMatchOutcome.getMatchResultEnum();
+		validateRequestIsLegal(thePerson, theTarget, matchResultEnum, theLinkSource);
+		switch (matchResultEnum) {
 			case MATCH:
-				//deleteCurrentMatch(theResource);
-				myPersonHelper.addOrUpdateLink(thePerson, resourceId, AssuranceLevelUtil.getAssuranceLevel(theMatchResult, theLinkSource), theEmpiTransactionContext);
+				myPersonHelper.addOrUpdateLink(thePerson, resourceId, AssuranceLevelUtil.getAssuranceLevel(matchResultEnum, theLinkSource), theEmpiTransactionContext);
 				myEmpiResourceDaoSvc.updatePerson(thePerson);
 				break;
 			case POSSIBLE_MATCH:
-				myPersonHelper.addOrUpdateLink(thePerson, resourceId, AssuranceLevelUtil.getAssuranceLevel(theMatchResult, theLinkSource), theEmpiTransactionContext);
+				myPersonHelper.addOrUpdateLink(thePerson, resourceId, AssuranceLevelUtil.getAssuranceLevel(matchResultEnum, theLinkSource), theEmpiTransactionContext);
 				break;
 			case NO_MATCH:
 				myPersonHelper.removeLink(thePerson, resourceId, theEmpiTransactionContext);
@@ -83,8 +91,15 @@ public class EmpiLinkSvcImpl implements IEmpiLinkSvc {
 				break;
 		}
 		myEmpiResourceDaoSvc.updatePerson(thePerson);
-		createOrUpdateLinkEntity(thePerson, theResource, theMatchResult, theLinkSource, theEmpiTransactionContext);
+		createOrUpdateLinkEntity(thePerson, theTarget, theMatchOutcome, theLinkSource, theEmpiTransactionContext);
+	}
 
+	private boolean personsLinkedAsNoMatch(IAnyResource thePerson, IAnyResource theTarget) {
+		Long personId = myIdHelperService.getPidOrThrowException(thePerson);
+		Long targetId = myIdHelperService.getPidOrThrowException(theTarget);
+		// TODO perf collapse into one query
+		return myEmpiLinkDaoSvc.getEmpiLinksByPersonPidTargetPidAndMatchResult(personId, targetId, EmpiMatchResultEnum.NO_MATCH).isPresent() ||
+			myEmpiLinkDaoSvc.getEmpiLinksByPersonPidTargetPidAndMatchResult(targetId, personId, EmpiMatchResultEnum.NO_MATCH).isPresent();
 	}
 
 	@Override
@@ -99,7 +114,6 @@ public class EmpiLinkSvcImpl implements IEmpiLinkSvc {
 			.map(this::personLinkFromEmpiLink)
 			.collect(Collectors.toList());
 		myPersonHelper.setLinks(thePersonResource, newLinks);
-		myEmpiResourceDaoSvc.updatePerson(thePersonResource);
 		if (newLinks.size() > origLinkCount) {
 			log(theEmpiTransactionContext, thePersonResource.getIdElement().toVersionless() + " links increased from " + origLinkCount + " to " + newLinks.size());
 		} else if (newLinks.size() < origLinkCount) {
@@ -163,8 +177,8 @@ public class EmpiLinkSvcImpl implements IEmpiLinkSvc {
 		}
 	}
 
-	private void createOrUpdateLinkEntity(IBaseResource thePerson, IBaseResource theResource, EmpiMatchResultEnum theMatchResult, EmpiLinkSourceEnum theLinkSource, EmpiTransactionContext theEmpiTransactionContext) {
-		myEmpiLinkDaoSvc.createOrUpdateLinkEntity(thePerson, theResource, theMatchResult, theLinkSource, theEmpiTransactionContext);
+	private void createOrUpdateLinkEntity(IBaseResource thePerson, IBaseResource theResource, EmpiMatchOutcome theMatchOutcome, EmpiLinkSourceEnum theLinkSource, EmpiTransactionContext theEmpiTransactionContext) {
+		myEmpiLinkDaoSvc.createOrUpdateLinkEntity(thePerson, theResource, theMatchOutcome, theLinkSource, theEmpiTransactionContext);
 	}
 
 	private void log(EmpiTransactionContext theEmpiTransactionContext, String theMessage) {

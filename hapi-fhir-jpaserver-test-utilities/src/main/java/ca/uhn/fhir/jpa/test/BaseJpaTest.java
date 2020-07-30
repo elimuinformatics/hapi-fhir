@@ -21,24 +21,26 @@ package ca.uhn.fhir.jpa.test;
  */
 
 import ca.uhn.fhir.jpa.dao.expunge.ExpungeEverythingService;
+import ca.uhn.fhir.jpa.util.MemoryCacheService;
 import ca.uhn.fhir.rest.api.Constants;
 import ca.uhn.fhir.rest.server.exceptions.InternalErrorException;
 import ca.uhn.fhir.test.utilities.UnregisterScheduledProcessor;
 import ca.uhn.fhir.util.TestUtil;
-import org.junit.After;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.TransactionCallbackWithoutResult;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.io.IOException;
 import java.util.concurrent.Callable;
 
 @TestPropertySource(properties = {
@@ -46,7 +48,7 @@ import java.util.concurrent.Callable;
 	// value returned by SearchBuilder.getLastHandlerMechanismForUnitTest()
 	UnregisterScheduledProcessor.SCHEDULING_DISABLED_EQUALS_TRUE
 })
-@RunWith(SpringRunner.class)
+@ExtendWith(SpringExtension.class)
 public abstract class BaseJpaTest {
 	private static final Logger ourLog = LoggerFactory.getLogger(BaseJpaTest.class);
 
@@ -66,10 +68,14 @@ public abstract class BaseJpaTest {
 	@Autowired
 	ApplicationContext myApplicationContext;
 
-	@After
-	public void after() {
+	@Autowired
+	MemoryCacheService myMemoryCacheService;
+
+	@AfterEach
+	public void after() throws IOException {
 		ourLog.info("\n  ---  @After  ---");
 		myExpungeEverythingService.expungeEverything(null);
+		myMemoryCacheService.invalidateAllCaches();
 	}
 
 	public TransactionTemplate newTxTemplate() {

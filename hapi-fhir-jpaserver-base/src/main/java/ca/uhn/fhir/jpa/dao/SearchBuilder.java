@@ -35,9 +35,9 @@ import ca.uhn.fhir.jpa.dao.data.IResourceTagDao;
 import ca.uhn.fhir.jpa.dao.index.IdHelperService;
 import ca.uhn.fhir.jpa.dao.predicate.PredicateBuilder;
 import ca.uhn.fhir.jpa.dao.predicate.PredicateBuilderFactory;
-import ca.uhn.fhir.jpa.dao.predicate.querystack.QueryStack;
 import ca.uhn.fhir.jpa.dao.predicate.SearchBuilderJoinEnum;
 import ca.uhn.fhir.jpa.dao.predicate.SearchBuilderJoinKey;
+import ca.uhn.fhir.jpa.dao.predicate.querystack.QueryStack;
 import ca.uhn.fhir.jpa.entity.ResourceSearchView;
 import ca.uhn.fhir.jpa.interceptor.JpaPreResourceAccessDetails;
 import ca.uhn.fhir.jpa.model.config.PartitionSettings;
@@ -90,6 +90,7 @@ import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import javax.annotation.Nonnull;
 import javax.persistence.EntityManager;
@@ -245,6 +246,7 @@ public class SearchBuilder implements ISearchBuilder {
 	@Override
 	public Iterator<Long> createCountQuery(SearchParameterMap theParams, String theSearchUuid, RequestDetails theRequest, @Nonnull RequestPartitionId theRequestPartitionId) {
 		assert theRequestPartitionId != null;
+		assert TransactionSynchronizationManager.isActualTransactionActive();
 
 		init(theParams, theSearchUuid, theRequestPartitionId);
 
@@ -263,6 +265,7 @@ public class SearchBuilder implements ISearchBuilder {
 	@Override
 	public IResultIterator createQuery(SearchParameterMap theParams, SearchRuntimeDetails theSearchRuntimeDetails, RequestDetails theRequest, @Nonnull RequestPartitionId theRequestPartitionId) {
 		assert theRequestPartitionId != null;
+		assert TransactionSynchronizationManager.isActualTransactionActive();
 
 		init(theParams, theSearchRuntimeDetails.getSearchUuid(), theRequestPartitionId);
 
@@ -310,9 +313,6 @@ public class SearchBuilder implements ISearchBuilder {
 					if (myParams.isLastN()) {
 						throw new InvalidRequestException("LastN operation is not enabled on this service, can not process this request");
 					}
-				}
-				if(myParams.getLastNMax() == null) {
-					throw new InvalidRequestException("Max parameter is required for $lastn operation");
 				}
 				List<String> lastnResourceIds = myIElasticsearchSvc.executeLastN(myParams, myContext, theMaximumResults);
 				for (String lastnResourceId : lastnResourceIds) {
@@ -1380,7 +1380,7 @@ public class SearchBuilder implements ISearchBuilder {
 		return ResourcePersistentId.fromLongList(query.getResultList());
 	}
 
-	static Predicate[] toPredicateArray(List<Predicate> thePredicates) {
+	public static Predicate[] toPredicateArray(List<Predicate> thePredicates) {
 		return thePredicates.toArray(new Predicate[0]);
 	}
 }
