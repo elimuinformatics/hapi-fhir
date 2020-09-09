@@ -35,7 +35,6 @@ import ca.uhn.fhir.jpa.api.model.ExpungeOptions;
 import ca.uhn.fhir.jpa.api.model.ExpungeOutcome;
 import ca.uhn.fhir.jpa.dao.tx.HapiTransactionService;
 import ca.uhn.fhir.jpa.delete.DeleteConflictService;
-import ca.uhn.fhir.jpa.model.config.PartitionSettings;
 import ca.uhn.fhir.jpa.model.entity.BaseHasResource;
 import ca.uhn.fhir.jpa.model.entity.BaseTag;
 import ca.uhn.fhir.jpa.model.entity.ForcedId;
@@ -136,8 +135,6 @@ public abstract class BaseHapiFhirResourceDao<T extends IBaseResource> extends B
 
 	@Autowired
 	protected PlatformTransactionManager myPlatformTransactionManager;
-	@Autowired(required = false)
-	protected IFulltextSearchSvc mySearchDao;
 	@Autowired
 	protected DaoConfig myDaoConfig;
 	@Autowired
@@ -148,16 +145,16 @@ public abstract class BaseHapiFhirResourceDao<T extends IBaseResource> extends B
 	private SearchBuilderFactory mySearchBuilderFactory;
 	@Autowired
 	private DaoRegistry myDaoRegistry;
+	@Autowired
+	private IRequestPartitionHelperSvc myRequestPartitionHelperService;
+	@Autowired
+	private HapiTransactionService myTransactionService;
+	@Autowired(required = false)
+	protected IFulltextSearchSvc mySearchDao;
 
 	private IInstanceValidatorModule myInstanceValidator;
 	private String myResourceName;
 	private Class<T> myResourceType;
-	@Autowired
-	private IRequestPartitionHelperSvc myRequestPartitionHelperService;
-	@Autowired
-	private PartitionSettings myPartitionSettings;
-	@Autowired
-	private HapiTransactionService myTransactionService;
 
 	@Override
 	@Transactional
@@ -707,6 +704,7 @@ public abstract class BaseHapiFhirResourceDao<T extends IBaseResource> extends B
 		return myResourceName;
 	}
 
+
 	@Override
 	public Class<T> getResourceType() {
 		return myResourceType;
@@ -996,21 +994,24 @@ public abstract class BaseHapiFhirResourceDao<T extends IBaseResource> extends B
 	}
 
 	@Override
-	@Transactional
 	public T read(IIdType theId) {
 		return read(theId, null);
 	}
 
 	@Override
-	@Transactional
 	public T read(IIdType theId, RequestDetails theRequestDetails) {
 		return read(theId, theRequestDetails, false);
 	}
 
 	@Override
-	@Transactional
 	public T read(IIdType theId, RequestDetails theRequest, boolean theDeletedOk) {
 		validateResourceTypeAndThrowInvalidRequestException(theId);
+
+		return myTransactionService.execute(theRequest, tx-> doRead(theId, theRequest, theDeletedOk));
+	}
+
+	public T doRead(IIdType theId, RequestDetails theRequest, boolean theDeletedOk) {
+		assert TransactionSynchronizationManager.isActualTransactionActive();
 
 		// Notify interceptors
 		if (theRequest != null) {
@@ -1362,17 +1363,22 @@ public abstract class BaseHapiFhirResourceDao<T extends IBaseResource> extends B
 		}
 		assert theResource.getIdElement().hasIdPart() || isNotBlank(theMatchUrl);
 
-		return myTransactionService.execute(theRequest, tx -> doUpdate(theResource, theMatchUrl, thePerformIndexing, theForceUpdateVersion, theRequest, theTransactionDetails));
+		/*
+		 * Resource updates will modify/update the version of the resource with the new version. This is generally helpful,
+		 * but leads to issues if the transaction is rolled back and retried. So if we do a rollback, we reset the resource
+		 * version to what it was.
+		 */
+		String id = theResource.getIdElement().getValue();
+		Runnable onRollback = () -> theResource.getIdElement().setValue(id);
+
+		// Execute the update in a retriable transasction
+		return myTransactionService.execute(theRequest, tx -> doUpdate(theResource, theMatchUrl, thePerformIndexing, theForceUpdateVersion, theRequest, theTransactionDetails), onRollback);
 	}
 
 	private DaoMethodOutcome doUpdate(T theResource, String theMatchUrl, boolean thePerformIndexing, boolean theForceUpdateVersion, RequestDetails theRequest, TransactionDetails theTransactionDetails) {
 		StopWatch w = new StopWatch();
 
 		T resource = theResource;
-		if (JpaInterceptorBroadcaster.hasHooks(Pointcut.STORAGE_VERSION_CONFLICT, myInterceptorBroadcaster, theRequest)) {
-			resource = (T) getContext().getResourceDefinition(theResource).newInstance();
-			getContext().newTerser().cloneInto(theResource, resource, false);
-		}
 
 		preProcessResourceForStorage(resource);
 
