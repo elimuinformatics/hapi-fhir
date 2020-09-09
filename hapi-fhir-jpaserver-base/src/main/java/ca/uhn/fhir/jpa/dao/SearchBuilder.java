@@ -745,6 +745,9 @@ public class SearchBuilder implements ISearchBuilder {
 						q.setParameter("target_pids", ResourcePersistentId.toLongList(nextPartition));
 						List<Long> results = q.getResultList();
 						for (Long resourceLink : results) {
+							if (resourceLink == null) {
+								continue;
+							}
 							if (theReverseMode) {
 								pidsToInclude.add(new ResourcePersistentId(resourceLink));
 							} else {
@@ -1307,11 +1310,21 @@ public class SearchBuilder implements ISearchBuilder {
 		}
 
 		@Override
+		public Collection<ResourcePersistentId> getNextResultBatch(long theBatchSize) {
+			Collection<ResourcePersistentId> batch = new ArrayList<>();
+			while (this.hasNext() && batch.size() < theBatchSize) {
+				batch.add(this.next());
+			}
+			return batch;
+		}
+
+		@Override
 		public void close() {
 			if (myResultsIterator != null) {
 				myResultsIterator.close();
 			}
 		}
+
 	}
 
 	private static class CountQueryIterator implements Iterator<Long> {
