@@ -98,36 +98,36 @@ public class HapiFhirJpaMigrationTasks extends BaseMigrationTasks<VersionEnum> {
 	public HapiFhirJpaMigrationTasks(Set<String> theFlags) {
 		myFlags = theFlags.stream().map(FlagEnum::fromCommandLineValue).collect(Collectors.toSet());
 
-		init330(); // 20180114 - 20180329
-		init340(); // 20180401 - 20180528
-		init350(); // 20180601 - 20180917
-		init360(); // 20180918 - 20181112
-		init400(); // 20190401 - 20190814
-		init410(); // 20190815 - 20191014
-		init420(); // 20191015 - 20200217
-		init430(); // Replaced by 5.0.0
-		init500(); // 20200218 - 20200513
-		init501(); // 20200514 - 20200515
-		init510(); // 20200516 - 20201028
-		init520(); // 20201029 -
-		init530();
-		init540(); // 20210218 - 20210520
-		init550(); // 20210520 -
-		init560(); // 20211027 -
-		init570(); // 20211102 -
-		init600(); // 20211102 -
-		init610();
-		init620();
-		init640();
-		init640_after_20230126();
-		init660();
-		init680();
+		// init330(); // 20180114 - 20180329
+		// init340(); // 20180401 - 20180528
+		// init350(); // 20180601 - 20180917
+		// init360(); // 20180918 - 20181112
+		// init400(); // 20190401 - 20190814
+		// init410(); // 20190815 - 20191014
+		// init420(); // 20191015 - 20200217
+		// init430(); // Replaced by 5.0.0
+		// init500(); // 20200218 - 20200513
+		// init501(); // 20200514 - 20200515
+		// init510(); // 20200516 - 20201028
+		// init520(); // 20201029 -
+		// init530();
+		// init540(); // 20210218 - 20210520
+		// init550(); // 20210520 -
+		// init560(); // 20211027 -
+		// init570(); // 20211102 -
+		// init600(); // 20211102 -
+		// init610();
+		// init620();
+		// init640();
+		// init640_after_20230126();
+		// init660();
+		// init680();
 		init680_Part2();
 		init700();
 		init720();
 		init740();
-		init760();
-		init780();
+		// init760();
+		// init780();
 	}
 
 	protected void init780() {
