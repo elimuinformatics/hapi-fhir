@@ -29,6 +29,7 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -37,10 +38,21 @@ import static org.apache.commons.lang3.StringUtils.isBlank;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 @TestMethodOrder(MethodOrderer.MethodName.class)
 public class HapiFlywayMigrateDatabaseCommandTest {
+
+	private static class TestableHapiFlywayMigrateDatabaseCommand extends HapiFlywayMigrateDatabaseCommand {
+		@Override
+		protected Set<String> getFlags() {
+			return Collections.emptySet();
+		}
+	}
 
 	private static final Logger ourLog = LoggerFactory.getLogger(HapiFlywayMigrateDatabaseCommandTest.class);
 	private final String myDbDirectory = "target/h2_test/" + RandomTextUtils.newSecureRandomAlphaNumericString(5);
@@ -255,6 +267,59 @@ public class HapiFlywayMigrateDatabaseCommandTest {
 		App.main(args);
 
 		assertThat(JdbcUtils.getTableNames(connectionProperties)).doesNotContain("FLY_HFJ_MIGRATION");
+	}
+
+	@Test
+	public void testAddTasksInvalidStartVersion() {
+		TestableHapiFlywayMigrateDatabaseCommand command = new TestableHapiFlywayMigrateDatabaseCommand();
+
+		IllegalArgumentException ex = assertThrows(
+			IllegalArgumentException.class,
+			() -> command.addTasks(mock(ca.uhn.fhir.jpa.migrate.HapiMigrator.class), null, "V7_4_0x", null));
+
+		assertThat(ex.getMessage()).contains("--start-from-version");
+		assertThat(ex.getMessage()).contains("Valid values are");
+	}
+
+	@Test
+	public void testAddTasksInvalidVersionRange() {
+		TestableHapiFlywayMigrateDatabaseCommand command = new TestableHapiFlywayMigrateDatabaseCommand();
+
+		IllegalArgumentException ex = assertThrows(
+			IllegalArgumentException.class,
+			() -> command.addTasks(mock(ca.uhn.fhir.jpa.migrate.HapiMigrator.class), null, "V7_8_0", "V7_4_0"));
+
+		assertThat(ex.getMessage()).contains("must be before or equal to --up-to-version");
+	}
+
+	@Test
+	public void testAddTasksSingleVersionRangeAllowed() {
+		TestableHapiFlywayMigrateDatabaseCommand command = new TestableHapiFlywayMigrateDatabaseCommand();
+		ca.uhn.fhir.jpa.migrate.HapiMigrator migrator = mock(ca.uhn.fhir.jpa.migrate.HapiMigrator.class);
+
+		command.addTasks(migrator, null, "V7_6_0", "V7_6_0");
+
+		verify(migrator).addTasks(any());
+	}
+
+	@Test
+	public void testAddTasksStartFromVersionOnly() {
+		TestableHapiFlywayMigrateDatabaseCommand command = new TestableHapiFlywayMigrateDatabaseCommand();
+		ca.uhn.fhir.jpa.migrate.HapiMigrator migrator = mock(ca.uhn.fhir.jpa.migrate.HapiMigrator.class);
+
+		command.addTasks(migrator, null, "V7_4_0", null);
+
+		verify(migrator).addTasks(any());
+	}
+
+	@Test
+	public void testAddTasksUpToVersionOnly() {
+		TestableHapiFlywayMigrateDatabaseCommand command = new TestableHapiFlywayMigrateDatabaseCommand();
+		ca.uhn.fhir.jpa.migrate.HapiMigrator migrator = mock(ca.uhn.fhir.jpa.migrate.HapiMigrator.class);
+
+		command.addTasks(migrator, null, null, "V7_8_0");
+
+		verify(migrator).addTasks(any());
 	}
 
 	@Nonnull
