@@ -42,6 +42,8 @@ public abstract class BaseFlywayMigrateDatabaseCommand<T extends Enum> extends B
 	public static final String MIGRATE_DATABASE = "migrate-database";
 	public static final String NO_COLUMN_SHRINK = "no-column-shrink";
 	public static final String SKIP_VERSIONS = "skip-versions";
+	public static final String START_FROM_VERSION = "start-from-version";
+	public static final String UP_TO_VERSION = "up-to-version";
 	public static final String ENABLE_HEAVYWEIGHT_MIGRATIONS = "enable-heavyweight-migrations";
 
 	private Set<String> myFlags;
@@ -104,6 +106,18 @@ public abstract class BaseFlywayMigrateDatabaseCommand<T extends Enum> extends B
 				ENABLE_HEAVYWEIGHT_MIGRATIONS,
 				false,
 				"If this flag is set, additional migration tasks will be executed that are considered unnecessary to execute on a database with a significant amount of data loaded. This option is not generally necessary.");
+		addOptionalOption(
+				retVal,
+				null,
+				START_FROM_VERSION,
+				"StartFromVersion",
+				"Run migrations starting from this version (inclusive). Earlier versions are skipped. E.g. 7.4.0 or V7_4_0");
+		addOptionalOption(
+				retVal,
+				null,
+				UP_TO_VERSION,
+				"UpToVersion",
+				"Run migrations up to this version (inclusive). Later versions are skipped. E.g. 7.8.0 or V7_8_0");
 
 		return retVal;
 	}
@@ -147,12 +161,15 @@ public abstract class BaseFlywayMigrateDatabaseCommand<T extends Enum> extends B
 			migrator.setRunHeavyweightSkippableTasks(runHeavyweight);
 			migrator.setNoColumnShrink(noColumnShrink);
 			String skipVersions = theCommandLine.getOptionValue(BaseFlywayMigrateDatabaseCommand.SKIP_VERSIONS);
-			addTasks(migrator, skipVersions);
+			String startFromVersion = theCommandLine.getOptionValue(START_FROM_VERSION);
+			String upToVersion = theCommandLine.getOptionValue(UP_TO_VERSION);
+			addTasks(migrator, skipVersions, startFromVersion, upToVersion);
 			migrator.migrate();
 		}
 	}
 
-	protected abstract void addTasks(HapiMigrator theMigrator, String theSkippedVersions);
+	protected abstract void addTasks(
+			HapiMigrator theMigrator, String theSkippedVersions, String theStartFromVersion, String theUpToVersion);
 
 	public void setMigrationTableName(String theMigrationTableName) {
 		myMigrationTableName = theMigrationTableName;

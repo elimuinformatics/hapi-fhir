@@ -98,36 +98,36 @@ public class HapiFhirJpaMigrationTasks extends BaseMigrationTasks<VersionEnum> {
 	public HapiFhirJpaMigrationTasks(Set<String> theFlags) {
 		myFlags = theFlags.stream().map(FlagEnum::fromCommandLineValue).collect(Collectors.toSet());
 
-		// init330(); // 20180114 - 20180329
-		// init340(); // 20180401 - 20180528
-		// init350(); // 20180601 - 20180917
-		// init360(); // 20180918 - 20181112
-		// init400(); // 20190401 - 20190814
-		// init410(); // 20190815 - 20191014
-		// init420(); // 20191015 - 20200217
-		// init430(); // Replaced by 5.0.0
-		// init500(); // 20200218 - 20200513
-		// init501(); // 20200514 - 20200515
-		// init510(); // 20200516 - 20201028
-		// init520(); // 20201029 -
-		// init530();
-		// init540(); // 20210218 - 20210520
-		// init550(); // 20210520 -
-		// init560(); // 20211027 -
-		// init570(); // 20211102 -
-		// init600(); // 20211102 -
-		// init610();
-		// init620();
-		// init640();
-		// init640_after_20230126();
-		// init660();
-		// init680();
+		init330(); // 20180114 - 20180329
+		init340(); // 20180401 - 20180528
+		init350(); // 20180601 - 20180917
+		init360(); // 20180918 - 20181112
+		init400(); // 20190401 - 20190814
+		init410(); // 20190815 - 20191014
+		init420(); // 20191015 - 20200217
+		init430(); // Replaced by 5.0.0
+		init500(); // 20200218 - 20200513
+		init501(); // 20200514 - 20200515
+		init510(); // 20200516 - 20201028
+		init520(); // 20201029 -
+		init530();
+		init540(); // 20210218 - 20210520
+		init550(); // 20210520 -
+		init560(); // 20211027 -
+		init570(); // 20211102 -
+		init600(); // 20211102 -
+		init610();
+		init620();
+		init640();
+		init640_after_20230126();
+		init660();
+		init680();
 		init680_Part2();
 		init700();
 		init720();
 		init740();
-		// init760();
-		// init780();
+		init760();
+		init780();
 	}
 
 	protected void init780() {
@@ -379,6 +379,29 @@ public class HapiFhirJpaMigrationTasks extends BaseMigrationTasks<VersionEnum> {
 				.nullable()
 				.withType(ColumnTypeEnum.TINYINT)
 				.heavyweightSkipByDefault();
+
+		/*
+		 * These two constraints were the last two that we had that used
+		 * hibernate-generated names. Yay!
+		 */
+		version.onTable("HFJ_RES_TAG").dropForeignKey("20250115.10", "FKbfcjbaftmiwr3rxkwsy23vneo", "HFJ_TAG_DEF");
+		version.onTable("HFJ_HISTORY_TAG").dropForeignKey("20250115.20", "FKtderym7awj6q8iq5c51xv4ndw", "HFJ_TAG_DEF");
+
+		/*
+		 * This migration drops a constraint from ResourceLink#myTargetResource. Not having this
+		 * constraint is a significant performance improvement in some cases, and the column is
+		 * nullable anyhow already because we also have the possibility of having a logical reference
+		 * instead of a hard one. We still keep the constraint present on the ResourceLink
+		 * entity for two reasons:
+		 * 1. We want to leave it in place on H2 to ensure that it helps to catch any bugs.
+		 * 2. We can't drop it as of 2025-01-16 because of this Hibernate bug:
+		 *    https://hibernate.atlassian.net/browse/HHH-19046
+		 */
+		version.onTable("HFJ_RES_LINK")
+				.dropForeignKey("20250115.30", "FK_RESLINK_TARGET", "HFJ_RESOURCE")
+				.runEvenDuringSchemaInitialization()
+				.onlyAppliesToPlatforms(
+						DriverTypeEnum.POSTGRES_9_4, DriverTypeEnum.MSSQL_2012, DriverTypeEnum.ORACLE_12C);
 	}
 
 	protected void init780_afterPartitionChanges() {

@@ -44,11 +44,11 @@ public class BaseMigrationTasks<T extends Enum> {
 	public MigrationTaskList getTaskList(@Nonnull T theFrom, @Nonnull T theTo) {
 		Validate.notNull(theFrom);
 		Validate.notNull(theTo);
-		Validate.isTrue(theFrom.ordinal() < theTo.ordinal(), "From version must be lower than to version");
+		Validate.isTrue(theFrom.ordinal() <= theTo.ordinal(), "From version must be lower than or equal to version");
 
 		MigrationTaskList retVal = new MigrationTaskList();
 		for (Object nextVersion : EnumUtils.getEnumList(theFrom.getClass())) {
-			if (((T) nextVersion).ordinal() <= theFrom.ordinal()) {
+			if (((T) nextVersion).ordinal() < theFrom.ordinal()) {
 				continue;
 			}
 			if (((T) nextVersion).ordinal() > theTo.ordinal()) {

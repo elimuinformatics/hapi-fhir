@@ -22,6 +22,28 @@ Note the arguments:
 
 * `-d [dialect]` &ndash; This indicates the database dialect to use. See the detailed help for a list of options.
 * `--enable-heavyweight-migrations` &ndash; If this flag is set, additional migration tasks will be executed that are considered unnecessary to execute on a database with a significant amount of data loaded. This option is not generally necessary.
+* `--start-from-version [VersionEnum]` &ndash; Start migrations from this release (inclusive). Earlier releases are skipped. Example values: `V7_6_0`, `V7_8_0`.
+* `--up-to-version [VersionEnum]` &ndash; Stop migrations at this release (inclusive). Later releases are skipped.
+
+Examples:
+
+Run only migrations for 7.6.0:
+
+```bash
+./hapi-fhir-cli migrate-database -d POSTGRES_9_4 -u "[url]" -n "[username]" -p "[password]" --start-from-version V7_6_0 --up-to-version V7_6_0
+```
+
+Run migrations from 7.6.0 up to latest:
+
+```bash
+./hapi-fhir-cli migrate-database -d POSTGRES_9_4 -u "[url]" -n "[username]" -p "[password]" --start-from-version V7_6_0
+```
+
+Run migrations from 7.6.0 up to 7.8.0:
+
+```bash
+./hapi-fhir-cli migrate-database -d POSTGRES_9_4 -u "[url]" -n "[username]" -p "[password]" --start-from-version V7_6_0 --up-to-version V7_8_0
+```
 
 <a name="database-partition-mode"/>
 
